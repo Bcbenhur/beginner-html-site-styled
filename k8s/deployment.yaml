@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mdn-site
+  labels:
+    app: mdn-site
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: mdn-site
+  template:
+    metadata:
+      labels:
+        app: mdn-site
+    spec:
+      containers:
+      - name: mdn-site
+        image: bbenhur03/mdn-site:latest
+        ports:
+        - containerPort: 80
