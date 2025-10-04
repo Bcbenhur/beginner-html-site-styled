@@ -6,8 +6,8 @@ pipeline {
         DOCKER_IMAGE = "bbenhur03/mdn-site:${env.BUILD_NUMBER}"
         // Jenkins credential ID for Docker Hub (username + token)
         DOCKER_HUB_CRED = 'dockerhub-creds'
-        // Path to private key stored on Jenkins for K8s master
-        SSH_PRIVATE_KEY_PATH = '/var/lib/jenkins/.ssh/k8s_master.pem'
+        // Jenkins credential ID for SSH to K8s master (private key)
+        SSH_K8S_MASTER = 'ssh-k8s-master'
         // SSH username for K8s master
         K8S_MASTER_USER = 'ubuntu'
         // Public IP of your K8s master node
@@ -43,11 +43,13 @@ pipeline {
                     // Replace Docker image placeholder in manifest
                     sh "sed -i 's|<DOCKERHUB_USER>/mdn-site:latest|${DOCKER_IMAGE}|g' k8s/deployment.yaml"
 
-                    // Copy manifests to K8s master
-                    sh "scp -o StrictHostKeyChecking=no -i ${SSH_PRIVATE_KEY_PATH} k8s/deployment.yaml k8s/service.yaml ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:/tmp/"
-
-                    // Apply manifests on K8s master
-                    sh "ssh -o StrictHostKeyChecking=no -i ${SSH_PRIVATE_KEY_PATH} ${K8S_MASTER_USER}@${K8S_MASTER_HOST} 'kubectl apply -f /tmp/deployment.yaml && kubectl apply -f /tmp/service.yaml'"
+                    // Use Jenkins SSH credential to copy manifests to K8s master and apply
+                    sshagent (credentials: [env.SSH_K8S_MASTER]) {
+                        sh """
+                            scp -o StrictHostKeyChecking=no k8s/deployment.yaml k8s/service.yaml ${K8S_MASTER_USER}@${K8S_MASTER_HOST}:/tmp/
+                            ssh -o StrictHostKeyChecking=no ${K8S_MASTER_USER}@${K8S_MASTER_HOST} 'kubectl apply -f /tmp/deployment.yaml && kubectl apply -f /tmp/service.yaml'
+                        """
+                    }
                 }
             }
         }
@@ -63,3 +65,4 @@ pipeline {
         }
     }
 }
+
